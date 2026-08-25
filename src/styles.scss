@@ -1,0 +1,355 @@
+@use '@angular/material' as mat;
+
+// ==========================================
+// Krenova Brand Theme
+// Primary: Deep Navy Blue #1B3A6B
+// ==========================================
+
+$krenova-primary: mat.m2-define-palette((
+  50:  #e3e9f3,
+  100: #b9c8e1,
+  200: #8ba4cd,
+  300: #5d80b9,
+  400: #3a64aa,
+  500: #1B3A6B,
+  600: #163263,
+  700: #122858,
+  800: #0e1f4e,
+  900: #08133c,
+  A100: #7396ff,
+  A200: #406eff,
+  A400: #0d46ff,
+  A700: #003af3,
+  contrast: (
+    50: rgba(0,0,0,0.87),
+    100: rgba(0,0,0,0.87),
+    200: rgba(0,0,0,0.87),
+    300: white,
+    400: white,
+    500: white,
+    600: white,
+    700: white,
+    800: white,
+    900: white,
+    A100: rgba(0,0,0,0.87),
+    A200: white,
+    A400: white,
+    A700: white,
+  )
+), 500, 300, 700);
+
+$krenova-accent: mat.m2-define-palette((
+  50:  #e8f5e9,
+  100: #c8e6c9,
+  200: #a5d6a7,
+  300: #81c784,
+  400: #66bb6a,
+  500: #4caf50,
+  600: #43a047,
+  700: #388e3c,
+  800: #2e7d32,
+  900: #1b5e20,
+  contrast: (
+    50: rgba(0,0,0,0.87),
+    100: rgba(0,0,0,0.87),
+    200: rgba(0,0,0,0.87),
+    300: rgba(0,0,0,0.87),
+    400: rgba(0,0,0,0.87),
+    500: rgba(0,0,0,0.87),
+    600: white,
+    700: white,
+    800: white,
+    900: white,
+  )
+), 600);
+
+$krenova-warn: mat.m2-define-palette((
+  50:  #ffebee,
+  100: #ffcdd2,
+  200: #ef9a9a,
+  300: #e57373,
+  400: #ef5350,
+  500: #f44336,
+  600: #e53935,
+  700: #d32f2f,
+  800: #c62828,
+  900: #b71c1c,
+  A100: #ff8a80,
+  A200: #ff5252,
+  A400: #ff1744,
+  A700: #d50000,
+  contrast: (
+    50:  rgba(0,0,0,0.87),
+    100: rgba(0,0,0,0.87),
+    200: rgba(0,0,0,0.87),
+    300: rgba(0,0,0,0.87),
+    400: rgba(0,0,0,0.87),
+    500: white,
+    600: white,
+    700: white,
+    800: white,
+    900: white,
+    A100: rgba(0,0,0,0.87),
+    A200: white,
+    A400: white,
+    A700: white,
+  )
+), 600);
+
+$krenova-theme: mat.m2-define-light-theme((
+  color: (
+    primary: $krenova-primary,
+    accent:  $krenova-accent,
+    warn:    $krenova-warn
+  ),
+  typography: mat.m2-define-typography-config(
+    $font-family: 'Inter, sans-serif'
+  ),
+  density: 0
+));
+
+@include mat.all-component-themes($krenova-theme);
+
+// ==========================================
+// CSS Custom Properties (Design Tokens)
+// ==========================================
+:root {
+  --color-primary:        #1B3A6B;
+  --color-primary-light:  #2a5298;
+  --color-primary-dark:   #122858;
+  --color-accent:         #16A34A;
+  --color-warn:           #DC2626;
+  --color-warning:        #F59E0B;
+
+  --color-bg:             #F8FAFC;
+  --color-surface:        #FFFFFF;
+  --color-surface-alt:    #F1F5F9;
+  --color-border:         #E2E8F0;
+  --color-border-light:   #F1F5F9;
+
+  --color-text-primary:   #1E293B;
+  --color-text-secondary: #64748B;
+  --color-text-muted:     #94A3B8;
+
+  --shadow-sm:   0 1px 2px 0 rgba(0,0,0,0.05);
+  --shadow-md:   0 4px 6px -1px rgba(0,0,0,0.07), 0 2px 4px -1px rgba(0,0,0,0.04);
+  --shadow-lg:   0 10px 15px -3px rgba(0,0,0,0.08), 0 4px 6px -2px rgba(0,0,0,0.03);
+
+  --radius-sm:   6px;
+  --radius-md:   10px;
+  --radius-lg:   16px;
+
+  --sidebar-width:         260px;
+  --sidebar-collapsed:     72px;
+  --topbar-height:         64px;
+
+  --transition-fast:  150ms ease;
+  --transition-base:  250ms ease;
+}
+
+// ==========================================
+// Global Reset & Base
+// ==========================================
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html, body {
+  height: 100%;
+  font-family: 'Inter', sans-serif;
+  font-size: 14px;
+  color: var(--color-text-primary);
+  background-color: var(--color-bg);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+// ==========================================
+// Material Component Overrides
+// ==========================================
+
+// Cards
+.mat-mdc-card {
+  border-radius: var(--radius-md) !important;
+  box-shadow: var(--shadow-sm) !important;
+  border: 1px solid var(--color-border-light) !important;
+}
+
+// Toolbar
+.mat-toolbar {
+  font-family: 'Inter', sans-serif !important;
+}
+
+// Form fields
+.mat-mdc-form-field {
+  font-family: 'Inter', sans-serif;
+}
+
+// Tables
+.mat-mdc-table {
+  background: var(--color-surface) !important;
+  font-family: 'Inter', sans-serif;
+
+  .mat-mdc-header-row {
+    background: var(--color-surface-alt) !important;
+  }
+
+  .mat-mdc-header-cell {
+    color: var(--color-text-secondary) !important;
+    font-weight: 600 !important;
+    font-size: 12px !important;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+
+  .mat-mdc-row:hover {
+    background: var(--color-surface-alt) !important;
+    transition: background var(--transition-fast);
+  }
+}
+
+// Paginator
+.mat-mdc-paginator {
+  background: var(--color-surface) !important;
+  border-top: 1px solid var(--color-border) !important;
+  font-family: 'Inter', sans-serif;
+}
+
+// Chips
+.mat-mdc-chip {
+  font-family: 'Inter', sans-serif;
+  font-size: 12px !important;
+}
+
+// Dialog
+.mat-mdc-dialog-container {
+  border-radius: var(--radius-lg) !important;
+}
+
+.mat-mdc-dialog-title {
+  font-family: 'Inter', sans-serif !important;
+  font-weight: 600 !important;
+}
+
+// Snackbar
+.mat-mdc-snack-bar-container {
+  border-radius: var(--radius-md) !important;
+}
+
+// Buttons
+.mat-mdc-button,
+.mat-mdc-raised-button,
+.mat-mdc-outlined-button {
+  font-family: 'Inter', sans-serif !important;
+  font-weight: 500 !important;
+  letter-spacing: 0 !important;
+  border-radius: var(--radius-sm) !important;
+}
+
+// Sidenav
+.mat-sidenav {
+  border-right: none !important;
+}
+
+// ==========================================
+// Utility Classes
+// ==========================================
+.flex { display: flex; }
+.flex-col { display: flex; flex-direction: column; }
+.items-center { align-items: center; }
+.justify-between { justify-content: space-between; }
+.gap-2 { gap: 8px; }
+.gap-3 { gap: 12px; }
+.gap-4 { gap: 16px; }
+.w-full { width: 100%; }
+.h-full { height: 100%; }
+
+// Status color helpers
+.status-active    { color: var(--color-accent); }
+.status-inactive  { color: var(--color-text-muted); }
+.status-warning   { color: var(--color-warning); }
+.status-error     { color: var(--color-warn); }
+
+// Page layout
+.page-container {
+  padding: 24px;
+  max-width: 1440px;
+  margin: 0 auto;
+}
+
+.page-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 24px;
+
+  h1 {
+    font-size: 22px;
+    font-weight: 600;
+    color: var(--color-text-primary);
+    letter-spacing: -0.3px;
+  }
+
+  .page-header-actions {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+  }
+}
+
+// Card section
+.section-card {
+  background: var(--color-surface);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--color-border-light);
+  box-shadow: var(--shadow-sm);
+  overflow: hidden;
+}
+
+// Search bar
+.search-bar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 16px;
+  border-bottom: 1px solid var(--color-border-light);
+  flex-wrap: wrap;
+
+  .mat-mdc-form-field {
+    flex: 1;
+    min-width: 200px;
+  }
+}
+
+// KPI cards grid
+.kpi-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 16px;
+  margin-bottom: 24px;
+}
+
+// Responsive
+@media (max-width: 768px) {
+  .page-container {
+    padding: 16px;
+  }
+
+  .page-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 12px;
+  }
+
+  .kpi-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 480px) {
+  .kpi-grid {
+    grid-template-columns: 1fr;
+  }
+}
