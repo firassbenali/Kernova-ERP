@@ -225,6 +225,13 @@ export class SidebarComponent {
   readonly navItems: NavItem[] = [
     { label: 'Dashboard', icon: 'dashboard', route: '/dashboard' },
     {
+      label: 'CRM & Clients', icon: 'business',
+      children: [
+        { label: 'Clients',      icon: 'store',       route: '/clients' },
+        { label: 'Rendez-vous',  icon: 'event',       route: '/clients/appointments' },
+      ]
+    },
+    {
       label: 'Human Resources', icon: 'people',
       children: [
         { label: 'Employees',   icon: 'badge',         route: '/rh/employees' },

@@ -180,9 +180,14 @@ export class LoginComponent {
 
     this.loading = true;
     this.auth.login(this.form.getRawValue()).subscribe({
-      next: () => {
+      next: (res) => {
         this.loading = false;
-        this.router.navigate(['/dashboard']);
+        const role = res.user?.role?.toUpperCase();
+        if (role === 'CLIENT' || role === 'ROLE_CLIENT') {
+          this.router.navigate(['/portal/dashboard']);
+        } else {
+          this.router.navigate(['/dashboard']);
+        }
       },
       error: () => {
         this.loading = false;

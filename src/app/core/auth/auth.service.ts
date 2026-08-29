@@ -27,6 +27,9 @@ export class AuthService {
   register(request: RegisterRequest): Observable<AuthResponse> {
     return this.http.post<AuthResponse>(`${API_URL}/auth/register`, request).pipe(
       tap(response => {
+        if (request.role && response.user) {
+          response.user.role = request.role;
+        }
         this.storeAuth(response);
       })
     );

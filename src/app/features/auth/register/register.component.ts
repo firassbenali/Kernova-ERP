@@ -4,6 +4,7 @@ import { Router, RouterLink } from '@angular/router';
 import { MatButtonModule } from '@angular/material/button';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
+import { MatSelectModule } from '@angular/material/select';
 import { MatIconModule } from '@angular/material/icon';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
@@ -18,6 +19,7 @@ import { AuthService } from '../../../core/auth/auth.service';
     MatButtonModule,
     MatFormFieldModule,
     MatInputModule,
+    MatSelectModule,
     MatIconModule,
     MatProgressSpinnerModule,
     MatSnackBarModule,
@@ -32,6 +34,25 @@ import { AuthService } from '../../../core/auth/auth.service';
         </div>
 
         <form [formGroup]="form" (ngSubmit)="submit()">
+          <mat-form-field appearance="outline" class="w-full">
+            <mat-label>Account Type / Role</mat-label>
+            <mat-select formControlName="role">
+              <mat-option value="ADMIN">
+                <mat-icon style="vertical-align: middle; margin-right: 6px; font-size: 18px; width: 18px; height: 18px; color: #1e40af;">admin_panel_settings</mat-icon>
+                Administrator (Full ERP Access)
+              </mat-option>
+              <mat-option value="EMPLOYEE">
+                <mat-icon style="vertical-align: middle; margin-right: 6px; font-size: 18px; width: 18px; height: 18px; color: #0284c7;">badge</mat-icon>
+                Employee (Staff Member)
+              </mat-option>
+              <mat-option value="CLIENT">
+                <mat-icon style="vertical-align: middle; margin-right: 6px; font-size: 18px; width: 18px; height: 18px; color: #16a34a;">business</mat-icon>
+                Client (Portal Access)
+              </mat-option>
+            </mat-select>
+            <mat-icon matPrefix>manage_accounts</mat-icon>
+          </mat-form-field>
+
           <mat-form-field appearance="outline" class="w-full">
             <mat-label>Username</mat-label>
             <input matInput formControlName="username" autocomplete="username" />
@@ -186,6 +207,7 @@ export class RegisterComponent {
   loading = false;
 
   form = this.fb.nonNullable.group({
+    role: ['ADMIN', [Validators.required]],
     username: ['', [Validators.required, Validators.minLength(3)]],
     email: ['', [Validators.required, Validators.email]],
     password: ['', [Validators.required, Validators.minLength(6)]],
@@ -194,11 +216,16 @@ export class RegisterComponent {
   submit(): void {
     if (this.form.invalid) return;
 
+    const raw = this.form.getRawValue();
     this.loading = true;
-    this.auth.register(this.form.getRawValue()).subscribe({
+    this.auth.register(raw).subscribe({
       next: () => {
         this.loading = false;
-        this.router.navigate(['/dashboard']);
+        if (raw.role === 'CLIENT') {
+          this.router.navigate(['/portal/dashboard']);
+        } else {
+          this.router.navigate(['/dashboard']);
+        }
       },
       error: (err: { error?: { message?: string } }) => {
         this.loading = false;

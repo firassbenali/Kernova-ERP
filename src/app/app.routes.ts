@@ -4,6 +4,8 @@ import { adminGuard } from './core/auth/admin.guard';
 import { guestGuard } from './core/auth/guest.guard';
 import { MainLayoutComponent } from './core/layout/main-layout/main-layout.component';
 
+import { ClientPortalLayoutComponent } from './core/layout/client-portal-layout/client-portal-layout.component';
+
 export const routes: Routes = [
   {
     path: 'login',
@@ -16,6 +18,56 @@ export const routes: Routes = [
     canActivate: [guestGuard],
     loadComponent: () =>
       import('./features/auth/register/register.component').then(m => m.RegisterComponent),
+  },
+  {
+    path: 'portal',
+    component: ClientPortalLayoutComponent,
+    canActivate: [authGuard],
+    children: [
+      { path: '', redirectTo: 'dashboard', pathMatch: 'full' },
+      {
+        path: 'dashboard',
+        loadComponent: () =>
+          import('./features/client-portal/portal-dashboard/portal-dashboard.component').then(
+            m => m.PortalDashboardComponent
+          ),
+      },
+      {
+        path: 'appointments',
+        loadComponent: () =>
+          import('./features/client-portal/portal-appointments/portal-appointments.component').then(
+            m => m.PortalAppointmentsComponent
+          ),
+      },
+      {
+        path: 'quotes',
+        loadComponent: () =>
+          import('./features/client-portal/portal-quotes/portal-quotes.component').then(
+            m => m.PortalQuotesComponent
+          ),
+      },
+      {
+        path: 'contracts',
+        loadComponent: () =>
+          import('./features/client-portal/portal-contracts/portal-contracts.component').then(
+            m => m.PortalContractsComponent
+          ),
+      },
+      {
+        path: 'invoices',
+        loadComponent: () =>
+          import('./features/client-portal/portal-invoices/portal-invoices.component').then(
+            m => m.PortalInvoicesComponent
+          ),
+      },
+      {
+        path: 'documents',
+        loadComponent: () =>
+          import('./features/client-portal/portal-documents/portal-documents.component').then(
+            m => m.PortalDocumentsComponent
+          ),
+      },
+    ],
   },
   {
     path: '',
@@ -191,6 +243,27 @@ export const routes: Routes = [
         loadComponent: () =>
           import('./features/users/user-list/user-list.component').then(
             m => m.UserListComponent
+          ),
+      },
+      {
+        path: 'clients',
+        loadComponent: () =>
+          import('./features/clients/client-list/client-list.component').then(
+            m => m.ClientListComponent
+          ),
+      },
+      {
+        path: 'clients/appointments',
+        loadComponent: () =>
+          import('./features/clients/appointments-hub/appointments-hub.component').then(
+            m => m.AppointmentsHubComponent
+          ),
+      },
+      {
+        path: 'clients/:id',
+        loadComponent: () =>
+          import('./features/clients/client-detail/client-detail.component').then(
+            m => m.ClientDetailComponent
           ),
       },
       {
