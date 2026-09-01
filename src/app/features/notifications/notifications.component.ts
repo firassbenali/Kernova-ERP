@@ -6,7 +6,7 @@ import { MatSelectModule } from '@angular/material/select';
 import { MatSnackBar } from '@angular/material/snack-bar';
 import { MatDialog } from '@angular/material/dialog';
 import { catchError, filter, switchMap } from 'rxjs/operators';
-import { of } from 'rxjs';
+import { of, forkJoin } from 'rxjs';
 import { NotificationService } from '../../core/services/notification.service';
 import { Notification } from '../../domain/models/notification.model';
 import { ConfirmDialogComponent } from '../../shared/components/confirm-dialog/confirm-dialog.component';
@@ -50,7 +50,7 @@ import { LoadingOverlayComponent } from '../../shared/components/loading-overlay
         } @else {
           <div class="notif-list">
             @for (n of filtered(); track n.idNotification) {
-              <div class="notif-item" [class.notif-item--unread]="!n.isRead">
+              <div class="notif-item" [class.notif-item--unread]="!n.read">
                 <div class="notif-item__body">
                   <div class="notif-item__title">
                     {{ n.title }}
@@ -62,7 +62,7 @@ import { LoadingOverlayComponent } from '../../shared/components/loading-overlay
                   <div class="notif-item__date">{{ n.createdAt }}</div>
                 </div>
                 <div class="notif-item__actions">
-                  @if (!n.isRead) {
+                  @if (!n.read) {
                     <button mat-icon-button (click)="markAsRead(n)" title="Mark as read">
                       <mat-icon>check</mat-icon>
                     </button>
@@ -164,7 +164,18 @@ export class NotificationsComponent implements OnInit {
         this.all = data;
         this.types = [...new Set(data.map(n => n.type).filter(Boolean))] as string[];
         this.applyFilter();
-        this.loading.set(false);
+
+        const unread = data.filter(n => !n.read);
+        if (unread.length > 0) {
+          const requests = unread.map(n => this.service.markAsRead(n.idNotification));
+          forkJoin(requests).subscribe(() => {
+            unread.forEach(n => (n.read = true));
+            this.applyFilter();
+            this.loading.set(false);
+          });
+        } else {
+          this.loading.set(false);
+        }
       });
   }
 
@@ -182,7 +193,7 @@ export class NotificationsComponent implements OnInit {
   markAsRead(n: Notification): void {
     this.service.markAsRead(n.idNotification).subscribe({
       next: () => {
-        n.isRead = true;
+        n.read = true;
         this.applyFilter();
       },
       error: () => this.snackBar.open('Failed to update notification', 'Dismiss', { duration: 4000 }),

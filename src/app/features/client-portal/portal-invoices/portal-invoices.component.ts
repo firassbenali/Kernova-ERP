@@ -7,6 +7,7 @@ import { DecimalPipe } from '@angular/common';
 
 import { InvoiceService } from '../../../core/services/invoice.service';
 import { AuthService } from '../../../core/auth/auth.service';
+import { ClientPortalService } from '../../../core/services/client-portal.service';
 import { Invoice } from '../../../domain/models/invoice.model';
 import { LoadingOverlayComponent } from '../../../shared/components/loading-overlay/loading-overlay.component';
 import { EmptyStateComponent } from '../../../shared/components/empty-state/empty-state.component';
@@ -110,6 +111,7 @@ import { EmptyStateComponent } from '../../../shared/components/empty-state/empt
 export class PortalInvoicesComponent implements OnInit {
   private invoiceService = inject(InvoiceService);
   private authService = inject(AuthService);
+  private clientPortalService = inject(ClientPortalService);
 
   loading = signal(true);
   invoices = signal<Invoice[]>([]);
@@ -120,20 +122,21 @@ export class PortalInvoicesComponent implements OnInit {
 
   load(): void {
     this.loading.set(true);
-    const clientId = this.authService.currentUser()?.id;
-    if (!clientId) {
-      this.invoices.set([]);
-      this.loading.set(false);
-      return;
-    }
-
-    this.invoiceService.getAll(clientId).subscribe({
-      next: res => {
-        const filtered = (res || []).filter(i => i.clientId === clientId);
-        this.invoices.set(filtered);
+    this.clientPortalService.resolveClientId().subscribe(clientId => {
+      if (!clientId) {
+        this.invoices.set([]);
         this.loading.set(false);
-      },
-      error: () => this.loading.set(false),
+        return;
+      }
+
+      this.invoiceService.getAll(clientId).subscribe({
+        next: res => {
+          const filtered = (res || []).filter(i => i.clientId === clientId);
+          this.invoices.set(filtered);
+          this.loading.set(false);
+        },
+        error: () => this.loading.set(false),
+      });
     });
   }
 

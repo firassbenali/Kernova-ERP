@@ -12,6 +12,7 @@ import { Appointment } from '../../../domain/models/client.model';
 import { LoadingOverlayComponent } from '../../../shared/components/loading-overlay/loading-overlay.component';
 import { EmptyStateComponent } from '../../../shared/components/empty-state/empty-state.component';
 import { AppointmentFormDialogComponent } from '../../clients/appointment-form-dialog/appointment-form-dialog.component';
+import { ClientPortalService } from '../../../core/services/client-portal.service';
 import { filter, switchMap } from 'rxjs';
 
 @Component({
@@ -101,6 +102,7 @@ export class PortalAppointmentsComponent implements OnInit {
   private authService = inject(AuthService);
   private dialog = inject(MatDialog);
   private snackBar = inject(MatSnackBar);
+  private clientPortalService = inject(ClientPortalService);
 
   loading = signal(true);
   appointments = signal<Appointment[]>([]);
@@ -111,43 +113,45 @@ export class PortalAppointmentsComponent implements OnInit {
 
   load(): void {
     this.loading.set(true);
-    const clientId = this.authService.currentUser()?.id;
-    if (!clientId) {
-      this.appointments.set([]);
-      this.loading.set(false);
-      return;
-    }
-
-    this.appointmentService.getByClient(clientId).subscribe({
-      next: res => {
-        const filtered = (res || []).filter(a => a.clientId === clientId);
-        this.appointments.set(filtered);
+    this.clientPortalService.resolveClientId().subscribe(clientId => {
+      if (!clientId) {
+        this.appointments.set([]);
         this.loading.set(false);
-      },
-      error: () => this.loading.set(false),
+        return;
+      }
+
+      this.appointmentService.getByClient(clientId).subscribe({
+        next: res => {
+          const filtered = (res || []).filter(a => a.clientId === clientId);
+          this.appointments.set(filtered);
+          this.loading.set(false);
+        },
+        error: () => this.loading.set(false),
+      });
     });
   }
 
   requestAppointment(): void {
-    const clientId = this.authService.currentUser()?.id;
-    if (!clientId) return;
+    this.clientPortalService.resolveClientId().subscribe(clientId => {
+      if (!clientId) return;
 
-    this.dialog
-      .open(AppointmentFormDialogComponent, { width: '520px', data: {} })
-      .afterClosed()
-      .pipe(
-        filter(Boolean),
-        switchMap(form => {
-          const payload = { ...form, clientId, status: 'Pending' as const };
-          return this.appointmentService.create(clientId, payload);
-        })
-      )
-      .subscribe({
-        next: () => {
-          this.snackBar.open('Votre demande de rendez-vous a été transmise avec succès !', 'OK', { duration: 4000 });
-          this.load();
-        },
-      });
+      this.dialog
+        .open(AppointmentFormDialogComponent, { width: '520px', data: {} })
+        .afterClosed()
+        .pipe(
+          filter(Boolean),
+          switchMap(form => {
+            const payload = { ...form, clientId, status: 'Pending' as const };
+            return this.appointmentService.create(clientId, payload);
+          })
+        )
+        .subscribe({
+          next: () => {
+            this.snackBar.open('Votre demande de rendez-vous a été transmise avec succès !', 'OK', { duration: 4000 });
+            this.load();
+          },
+        });
+    });
   }
 }
 

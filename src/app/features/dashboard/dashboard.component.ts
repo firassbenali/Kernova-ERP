@@ -120,7 +120,7 @@ interface KpiCard {
             </div>
             <div class="notif-list">
               @for (n of recentNotifications(); track n.idNotification) {
-                <div class="notif-item" [class.notif-item--unread]="!n.isRead">
+                <div class="notif-item" [class.notif-item--unread]="!n.read">
                   <div class="notif-item__title">{{ n.title }}</div>
                   <div class="notif-item__msg">{{ n.message }}</div>
                 </div>

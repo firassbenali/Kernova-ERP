@@ -6,6 +6,7 @@ import { MatInputModule } from '@angular/material/input';
 import { MatSelectModule } from '@angular/material/select';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
+import { MatSlideToggleModule } from '@angular/material/slide-toggle';
 import { Client } from '../../../domain/models/client.model';
 
 export interface ClientDialogData {
@@ -23,6 +24,7 @@ export interface ClientDialogData {
     MatSelectModule,
     MatButtonModule,
     MatIconModule,
+    MatSlideToggleModule,
   ],
   template: `
     <h2 mat-dialog-title>
@@ -57,6 +59,42 @@ export interface ClientDialogData {
             <mat-label>Téléphone</mat-label>
             <input matInput formControlName="phone" placeholder="+216 71 000 000" />
           </mat-form-field>
+        </div>
+
+        <!-- Section Création Compte Client (Espace Client) -->
+        <div class="account-section">
+          <div class="account-header">
+            <mat-slide-toggle formControlName="createAccount" color="primary">
+              <strong>Créer un compte d'accès Client (Portail Client)</strong>
+            </mat-slide-toggle>
+          </div>
+
+          @if (form.get('createAccount')?.value) {
+            <div class="form-row account-inputs">
+              <mat-form-field appearance="outline" class="w-full">
+                <mat-label>Mot de passe initial *</mat-label>
+                <input
+                  matInput
+                  [type]="hidePassword ? 'password' : 'text'"
+                  formControlName="initialPassword"
+                  placeholder="Définir un mot de passe temporaire"
+                />
+                <button
+                  mat-icon-button
+                  matSuffix
+                  type="button"
+                  (click)="hidePassword = !hidePassword"
+                >
+                  <mat-icon>{{ hidePassword ? 'visibility_off' : 'visibility' }}</mat-icon>
+                </button>
+                @if (form.get('initialPassword')?.hasError('required')) {
+                  <mat-error>Le mot de passe est requis pour la création du compte</mat-error>
+                } @else if (form.get('initialPassword')?.hasError('minlength')) {
+                  <mat-error>Au moins 6 caractères requis</mat-error>
+                }
+              </mat-form-field>
+            </div>
+          }
         </div>
 
         <div class="form-row two-cols">
@@ -151,6 +189,19 @@ export interface ClientDialogData {
     .two-cols > * { flex: 1; }
     .three-cols > * { flex: 1; }
     h2 { display: flex; align-items: center; gap: 8px; font-size: 18px; margin: 0; }
+    .account-section {
+      background: #f8fafc;
+      border: 1px solid #e2e8f0;
+      border-radius: 8px;
+      padding: 12px 14px;
+      margin-bottom: 12px;
+    }
+    .account-header {
+      margin-bottom: 8px;
+    }
+    .account-inputs {
+      margin-top: 8px;
+    }
   `],
 })
 export class ClientFormDialogComponent {
@@ -159,6 +210,7 @@ export class ClientFormDialogComponent {
   private fb = inject(FormBuilder);
 
   isEdit = !!this.data.client;
+  hidePassword = true;
 
   form = this.fb.group({
     companyName: [this.data.client?.companyName || '', [Validators.required]],
@@ -174,11 +226,35 @@ export class ClientFormDialogComponent {
     postalCode: [this.data.client?.postalCode || ''],
     country: [this.data.client?.country || 'Tunisie'],
     description: [this.data.client?.description || ''],
+    createAccount: [!this.isEdit],
+    initialPassword: ['', [Validators.minLength(6)]],
   });
+
+  constructor() {
+    this.updatePasswordValidation(this.form.get('createAccount')?.value ?? false);
+
+    this.form.get('createAccount')?.valueChanges.subscribe((create) => {
+      this.updatePasswordValidation(!!create);
+    });
+  }
+
+  private updatePasswordValidation(createAccount: boolean): void {
+    const passwordCtrl = this.form.get('initialPassword');
+    if (createAccount) {
+      passwordCtrl?.setValidators([Validators.required, Validators.minLength(6)]);
+    } else {
+      passwordCtrl?.clearValidators();
+    }
+    passwordCtrl?.updateValueAndValidity();
+  }
 
   submit(): void {
     if (this.form.valid) {
-      this.dialogRef.close(this.form.value);
+      const val = { ...this.form.value };
+      if (!val.createAccount) {
+        delete val.initialPassword;
+      }
+      this.dialogRef.close(val);
     }
   }
 }

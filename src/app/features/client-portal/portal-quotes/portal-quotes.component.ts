@@ -8,6 +8,7 @@ import { DecimalPipe } from '@angular/common';
 
 import { QuoteService } from '../../../core/services/quote.service';
 import { AuthService } from '../../../core/auth/auth.service';
+import { ClientPortalService } from '../../../core/services/client-portal.service';
 import { Quote } from '../../../domain/models/quote.model';
 import { LoadingOverlayComponent } from '../../../shared/components/loading-overlay/loading-overlay.component';
 import { EmptyStateComponent } from '../../../shared/components/empty-state/empty-state.component';
@@ -123,6 +124,7 @@ import { EmptyStateComponent } from '../../../shared/components/empty-state/empt
 export class PortalQuotesComponent implements OnInit {
   private quoteService = inject(QuoteService);
   private authService = inject(AuthService);
+  private clientPortalService = inject(ClientPortalService);
   private snackBar = inject(MatSnackBar);
 
   loading = signal(true);
@@ -134,20 +136,21 @@ export class PortalQuotesComponent implements OnInit {
 
   load(): void {
     this.loading.set(true);
-    const clientId = this.authService.currentUser()?.id;
-    if (!clientId) {
-      this.quotes.set([]);
-      this.loading.set(false);
-      return;
-    }
-
-    this.quoteService.getAll(clientId).subscribe({
-      next: res => {
-        const filtered = (res || []).filter(q => q.clientId === clientId);
-        this.quotes.set(filtered);
+    this.clientPortalService.resolveClientId().subscribe(clientId => {
+      if (!clientId) {
+        this.quotes.set([]);
         this.loading.set(false);
-      },
-      error: () => this.loading.set(false),
+        return;
+      }
+
+      this.quoteService.getAll(clientId).subscribe({
+        next: res => {
+          const filtered = (res || []).filter(q => q.clientId === clientId);
+          this.quotes.set(filtered);
+          this.loading.set(false);
+        },
+        error: () => this.loading.set(false),
+      });
     });
   }
 

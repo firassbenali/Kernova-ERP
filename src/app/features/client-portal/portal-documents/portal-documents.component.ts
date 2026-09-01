@@ -7,6 +7,7 @@ import { DatePipe } from '@angular/common';
 
 import { DocumentService } from '../../../core/services/document.service';
 import { AuthService } from '../../../core/auth/auth.service';
+import { ClientPortalService } from '../../../core/services/client-portal.service';
 import { DocumentModel } from '../../../domain/models/document.model';
 import { LoadingOverlayComponent } from '../../../shared/components/loading-overlay/loading-overlay.component';
 import { EmptyStateComponent } from '../../../shared/components/empty-state/empty-state.component';
@@ -86,6 +87,7 @@ import { EmptyStateComponent } from '../../../shared/components/empty-state/empt
 export class PortalDocumentsComponent implements OnInit {
   private documentService = inject(DocumentService);
   private authService = inject(AuthService);
+  private clientPortalService = inject(ClientPortalService);
   private snackBar = inject(MatSnackBar);
 
   loading = signal(true);
@@ -97,20 +99,21 @@ export class PortalDocumentsComponent implements OnInit {
 
   load(): void {
     this.loading.set(true);
-    const clientId = this.authService.currentUser()?.id;
-    if (!clientId) {
-      this.documents.set([]);
-      this.loading.set(false);
-      return;
-    }
-
-    this.documentService.getDocuments(clientId).subscribe({
-      next: res => {
-        const filtered = (res || []).filter(d => !d.clientId || d.clientId === clientId);
-        this.documents.set(filtered);
+    this.clientPortalService.resolveClientId().subscribe(clientId => {
+      if (!clientId) {
+        this.documents.set([]);
         this.loading.set(false);
-      },
-      error: () => this.loading.set(false),
+        return;
+      }
+
+      this.documentService.getDocuments(clientId).subscribe({
+        next: res => {
+          const filtered = (res || []).filter(d => !d.clientId || d.clientId === clientId);
+          this.documents.set(filtered);
+          this.loading.set(false);
+        },
+        error: () => this.loading.set(false),
+      });
     });
   }
 
@@ -118,16 +121,18 @@ export class PortalDocumentsComponent implements OnInit {
     const input = event.target as HTMLInputElement;
     if (input.files && input.files.length > 0) {
       const file = input.files[0];
-      const clientId = this.authService.currentUser()?.id;
-      this.documentService
-        .uploadDocument(file, clientId, undefined, file.name, 'Client Portal', 'Document déposé depuis le Portail Client')
-        .subscribe({
-          next: () => {
-            this.snackBar.open('Document téléversé avec succès !', 'OK', { duration: 3000 });
-            this.load();
-          },
-          error: () => this.snackBar.open('Erreur lors du téléversement', 'Fermer', { duration: 4000 }),
-        });
+      this.clientPortalService.resolveClientId().subscribe(clientId => {
+        if (!clientId) return;
+        this.documentService
+          .uploadDocument(file, clientId, undefined, file.name, 'Client Portal', 'Document déposé depuis le Portail Client')
+          .subscribe({
+            next: () => {
+              this.snackBar.open('Document téléversé avec succès !', 'OK', { duration: 3000 });
+              this.load();
+            },
+            error: () => this.snackBar.open('Erreur lors du téléversement', 'Fermer', { duration: 4000 }),
+          });
+      });
     }
   }
 

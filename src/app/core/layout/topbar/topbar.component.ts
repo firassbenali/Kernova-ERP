@@ -1,5 +1,5 @@
-import { Component, EventEmitter, Output, computed, inject } from '@angular/core';
-import { RouterLink } from '@angular/router';
+import { Component, EventEmitter, OnInit, Output, computed, inject } from '@angular/core';
+import { RouterLink, Router } from '@angular/router';
 import { MatToolbarModule } from '@angular/material/toolbar';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
@@ -9,6 +9,7 @@ import { MatDividerModule } from '@angular/material/divider';
 import { AuthService } from '../../auth/auth.service';
 import { NotificationService } from '../../services/notification.service';
 import { toSignal } from '@angular/core/rxjs-interop';
+import { forkJoin, catchError, of } from 'rxjs';
 
 @Component({
   selector: 'app-topbar',
@@ -30,9 +31,9 @@ import { toSignal } from '@angular/core/rxjs-interop';
 
       <!-- Right actions -->
       <div class="topbar__actions">
-        <!-- Notifications -->
+        <!-- Notifications bell: marks all read then navigates -->
         <button mat-icon-button
-          routerLink="/notifications"
+          (click)="openNotifications()"
           [matBadge]="unreadCount() > 0 ? unreadCount().toString() : null"
           matBadgeColor="warn"
           matBadgeSize="small"
@@ -100,21 +101,6 @@ import { toSignal } from '@angular/core/rxjs-interop';
       display: flex;
       align-items: center;
       gap: 8px;
-      padding: 0 8px;
-      height: 40px;
-      border-radius: 8px;
-      color: var(--color-text-primary);
-    }
-
-    .topbar__username {
-      font-size: 13px;
-      font-weight: 500;
-      max-width: 120px;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      white-space: nowrap;
-
-      @media (max-width: 600px) { display: none; }
     }
 
     .user-avatar {
@@ -126,22 +112,27 @@ import { toSignal } from '@angular/core/rxjs-interop';
       display: flex;
       align-items: center;
       justify-content: center;
-      font-size: 13px;
-      font-weight: 600;
-      flex-shrink: 0;
+      font-weight: 700;
+      font-size: 14px;
+
+      &--lg {
+        width: 40px;
+        height: 40px;
+        font-size: 16px;
+      }
     }
 
-    .user-avatar--lg {
-      width: 40px;
-      height: 40px;
-      font-size: 16px;
+    .topbar__username {
+      font-size: 14px;
+      font-weight: 500;
+      color: var(--color-text-primary);
     }
 
     .user-menu-header {
       display: flex;
       align-items: center;
       gap: 12px;
-      padding: 16px;
+      padding: 12px 16px;
     }
 
     .user-menu-name {
@@ -156,17 +147,15 @@ import { toSignal } from '@angular/core/rxjs-interop';
     }
   `]
 })
-export class TopbarComponent {
+export class TopbarComponent implements OnInit {
   @Output() menuToggle = new EventEmitter<void>();
 
   private authService = inject(AuthService);
   private notifService = inject(NotificationService);
+  private router = inject(Router);
 
-  private notifications = toSignal(this.notifService.getAll(), { initialValue: [] });
-
-  readonly unreadCount = computed(() =>
-    this.notifications().filter(n => !n.isRead).length
-  );
+  /** Reactively tracks unread count — updates when notifications are fetched or marked read */
+  readonly unreadCount = toSignal(this.notifService.unreadCount$, { initialValue: 0 });
 
   readonly userName = computed(() => this.authService.currentUser()?.username ?? 'User');
   readonly userEmail = computed(() => this.authService.currentUser()?.email ?? '');
@@ -174,6 +163,29 @@ export class TopbarComponent {
     const name = this.authService.currentUser()?.username ?? 'U';
     return name.charAt(0).toUpperCase();
   });
+
+  ngOnInit(): void {
+    // Fetch once on init to populate the badge count
+    this.notifService.getAll().subscribe();
+  }
+
+  openNotifications(): void {
+    // Fetch latest notifications, mark all unread as read, then navigate
+    this.notifService.getAll().subscribe(list => {
+      const unread = list.filter(n => !n.read);
+      if (unread.length > 0) {
+        const requests = unread.map(n =>
+          this.notifService.markAsRead(n.idNotification).pipe(catchError(() => of(null)))
+        );
+        forkJoin(requests).subscribe(() => {
+          this.notifService.setUnreadCount(0);
+          this.router.navigate(['/notifications']);
+        });
+      } else {
+        this.router.navigate(['/notifications']);
+      }
+    });
+  }
 
   logout(): void {
     this.authService.logout();

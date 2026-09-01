@@ -20,11 +20,11 @@ export class ClientService {
   }
 
   getById(id: number): Observable<Client> {
-    return this.http.get<Client>(${BASE}/);
+    return this.http.get<Client>(`${BASE}/${id}`);
   }
 
   getByUserId(userId: number): Observable<Client> {
-    return this.http.get<Client>(${BASE}/by-user/);
+    return this.http.get<Client>(`${BASE}/by-user/${userId}`);
   }
 
   create(client: Partial<Client>): Observable<Client> {
@@ -32,31 +32,31 @@ export class ClientService {
   }
 
   update(id: number, client: Partial<Client>): Observable<Client> {
-    return this.http.put<Client>(${BASE}/, client);
+    return this.http.put<Client>(`${BASE}/${id}`, client);
   }
 
   delete(id: number): Observable<void> {
-    return this.http.delete<void>(${BASE}/);
+    return this.http.delete<void>(`${BASE}/${id}`);
   }
 
   // --- Contacts ---
   getContacts(clientId: number): Observable<Contact[]> {
-    return this.http.get<Contact[]>(${BASE}//contacts);
+    return this.http.get<Contact[]>(`${BASE}/${clientId}/contacts`);
   }
 
   addContact(clientId: number, contact: Partial<Contact>): Observable<Contact> {
-    return this.http.post<Contact>(${BASE}//contacts, contact);
+    return this.http.post<Contact>(`${BASE}/${clientId}/contacts`, contact);
   }
 
   updateContact(clientId: number, contactId: number, contact: Partial<Contact>): Observable<Contact> {
-    return this.http.put<Contact>(${BASE}//contacts/, contact);
+    return this.http.put<Contact>(`${BASE}/${clientId}/contacts/${contactId}`, contact);
   }
 
   setPrimaryContact(clientId: number, contactId: number): Observable<Contact> {
-    return this.http.patch<Contact>(${BASE}//contacts//primary, {});
+    return this.http.patch<Contact>(`${BASE}/${clientId}/contacts/${contactId}/primary`, {});
   }
 
   deleteContact(clientId: number, contactId: number): Observable<void> {
-    return this.http.delete<void>(${BASE}//contacts/);
+    return this.http.delete<void>(`${BASE}/${clientId}/contacts/${contactId}`);
   }
 }

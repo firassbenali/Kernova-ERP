@@ -247,6 +247,7 @@ export class SidebarComponent {
       label: 'Projects', icon: 'folder',
       children: [
         { label: 'Projects',   icon: 'folder_open',  route: '/projects' },
+        { label: 'Mes Tâches', icon: 'assignment_ind', route: '/tasks/my-tasks' },
         { label: 'Tasks',      icon: 'task_alt',     route: '/tasks' },
         { label: 'Documents',  icon: 'description',  route: '/documents' },
       ]

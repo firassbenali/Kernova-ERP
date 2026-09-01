@@ -35,7 +35,6 @@ import { ContactFormDialogComponent } from '../contact-form-dialog/contact-form-
 import { AppointmentFormDialogComponent } from '../appointment-form-dialog/appointment-form-dialog.component';
 import { QuoteFormDialogComponent } from '../quote-form-dialog/quote-form-dialog.component';
 import { ContractFormDialogComponent } from '../contract-form-dialog/contract-form-dialog.component';
-import { SignContractDialogComponent } from '../sign-contract-dialog/sign-contract-dialog.component';
 import { InvoiceFormDialogComponent } from '../invoice-form-dialog/invoice-form-dialog.component';
 import { CurrencyPipe, DatePipe, DecimalPipe } from '@angular/common';
 
@@ -429,11 +428,7 @@ import { CurrencyPipe, DatePipe, DecimalPipe } from '@angular/common';
                           <mat-icon color="primary">picture_as_pdf</mat-icon>
                         </button>
 
-                        @if (row.status !== 'Signed') {
-                          <button mat-flat-button color="accent" class="btn-xs" (click)="openSignDialog(row)">
-                            <mat-icon>draw</mat-icon> Signer
-                          </button>
-                        } @else {
+                        @if (row.status === 'Signed') {
                           <button mat-stroked-button color="primary" class="btn-xs" (click)="generateInvoiceFromContract(row)">
                             <mat-icon>receipt_long</mat-icon> Facturer
                           </button>
@@ -1015,24 +1010,6 @@ export class ClientDetailComponent implements OnInit {
       .subscribe({
         next: () => {
           this.snackBar.open('Contrat créé avec succès', 'OK', { duration: 3000 });
-          this.loadContracts();
-        },
-      });
-  }
-
-  openSignDialog(contract: Contract): void {
-    if (!contract.idContract) return;
-
-    this.dialog
-      .open(SignContractDialogComponent, { width: '480px', data: { contract } })
-      .afterClosed()
-      .pipe(
-        filter(Boolean),
-        switchMap(signedBy => this.contractService.signContract(contract.idContract!, signedBy))
-      )
-      .subscribe({
-        next: () => {
-          this.snackBar.open('Contrat signé électroniquement avec succès !', 'OK', { duration: 4000 });
           this.loadContracts();
         },
       });

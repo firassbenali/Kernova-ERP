@@ -1,7 +1,7 @@
 import { Injectable } from '@angular/core';
 import { HttpClient, HttpParams } from '@angular/common/http';
 import { Observable } from 'rxjs';
-import { Project, ProjectFilters } from '../../domain/models/project.model';
+import { Project, ProjectFilters, ProjectBudgetReport, ProjectSummaryReport } from '../../domain/models/project.model';
 import { ProjectDocument } from '../../domain/models/project-document.model';
 import { Notification } from '../../domain/models/notification.model';
 
@@ -22,6 +22,10 @@ export class ProjectService {
 
   getById(id: number): Observable<Project> {
     return this.http.get<Project>(`${BASE}/${id}`);
+  }
+
+  getSummary(id: number): Observable<ProjectSummaryReport> {
+    return this.http.get<ProjectSummaryReport>(`${BASE}/${id}/summary`);
   }
 
   create(project: Partial<Project>): Observable<Project> {
@@ -89,5 +93,9 @@ export class ProjectService {
   // Reports
   getProgressReport(): Observable<unknown[]> {
     return this.http.get<unknown[]>(`${BASE}/reports/progress`);
+  }
+
+  getBudgetReport(): Observable<ProjectBudgetReport> {
+    return this.http.get<ProjectBudgetReport>(`${BASE}/reports/budget`);
   }
 }

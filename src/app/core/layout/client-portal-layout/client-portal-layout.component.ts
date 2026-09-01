@@ -1,10 +1,16 @@
-import { Component, inject } from '@angular/core';
+import { Component, inject, OnInit, signal } from '@angular/core';
 import { Router, RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatMenuModule } from '@angular/material/menu';
 import { MatDividerModule } from '@angular/material/divider';
+import { MatBadgeModule } from '@angular/material/badge';
+
 import { AuthService } from '../../auth/auth.service';
+import { ClientPortalService } from '../../services/client-portal.service';
+import { NotificationService } from '../../services/notification.service';
+import { Notification } from '../../../domain/models/notification.model';
+import { catchError, of, forkJoin } from 'rxjs';
 
 @Component({
   selector: 'app-client-portal-layout',
@@ -17,6 +23,7 @@ import { AuthService } from '../../auth/auth.service';
     MatIconModule,
     MatMenuModule,
     MatDividerModule,
+    MatBadgeModule,
   ],
   template: `
     <div class="portal-wrapper">
@@ -46,19 +53,59 @@ import { AuthService } from '../../auth/auth.service';
             <a routerLink="/portal/invoices" routerLinkActive="active-nav">
               <mat-icon>receipt_long</mat-icon> Mes Factures
             </a>
+            <a routerLink="/portal/projects" routerLinkActive="active-nav">
+              <mat-icon>business_center</mat-icon> Mes Projets
+            </a>
             <a routerLink="/portal/documents" routerLinkActive="active-nav">
               <mat-icon>folder_zip</mat-icon> Mes Documents
             </a>
           </nav>
 
-          <!-- User Menu -->
+          <!-- Right Side Actions: Notification Bell + User Menu -->
           <div class="user-menu">
+            <!-- Client Notification Bell -->
+            <button
+              mat-icon-button
+              [matMenuTriggerFor]="notifMenu"
+              class="notif-btn"
+              [matBadge]="unreadCount()"
+              [matBadgeHidden]="unreadCount() === 0"
+              matBadgeColor="warn"
+            >
+              <mat-icon>notifications</mat-icon>
+            </button>
+
+            <mat-menu #notifMenu="matMenu" class="notif-menu" (opened)="markAllAsRead()">
+              <div class="notif-header">
+                <strong>Mes Notifications</strong>
+                <span class="text-xs text-muted">{{ unreadCount() }} non lues</span>
+              </div>
+              <mat-divider></mat-divider>
+
+              @if (notifications().length === 0) {
+                <div class="notif-empty">Aucune notification pour le moment.</div>
+              } @else {
+                <div class="notif-list">
+                  @for (n of notifications(); track n.idNotification) {
+                    <div class="notif-item" [class.unread]="!n.read" (click)="markRead(n)">
+                      <mat-icon class="notif-ic" color="primary">notifications_active</mat-icon>
+                      <div class="notif-body">
+                        <strong class="notif-title">{{ n.title }}</strong>
+                        <p class="notif-msg">{{ n.message }}</p>
+                        <span class="notif-time">{{ n.createdAt }}</span>
+                      </div>
+                    </div>
+                  }
+                </div>
+              }
+            </mat-menu>
+
+            <!-- User Menu -->
             <button mat-button [matMenuTriggerFor]="profileMenu" class="user-btn">
               <div class="user-avatar">
                 {{ userEmail() ? userEmail()!.charAt(0).toUpperCase() : 'C' }}
               </div>
               <span class="user-name">{{ userEmail() || 'Mon Compte' }}</span>
-              <mat-icon>arrow_drop_down</mat-icon>
             </button>
 
             <mat-menu #profileMenu="matMenu">
@@ -80,7 +127,7 @@ import { AuthService } from '../../auth/auth.service';
         </div>
       </header>
 
-      <!-- Main Portal Content -->
+      <!-- Page Content Router Outlet -->
       <main class="portal-main">
         <div class="portal-container">
           <router-outlet></router-outlet>
@@ -90,11 +137,16 @@ import { AuthService } from '../../auth/auth.service';
       <!-- Portal Footer -->
       <footer class="portal-footer">
         <div class="portal-container footer-content">
-          <span>&copy; 2026 Kernova ERP Platform - Portail Client Sécurisé.</span>
+          <div class="footer-brand">
+            <strong>Kernova ERP — Portail Client Sécurisé</strong>
+            <p>© 2026 Kernova. Tous droits réservés.</p>
+          </div>
           <div class="footer-links">
-            <a href="#">Support Technique</a>
-            <a href="#">Conditions Générales</a>
-            <a href="#">Politique de Confidentialité</a>
+            <a routerLink="/portal/dashboard">Accueil</a>
+            <a routerLink="/portal/appointments">Rendez-vous</a>
+            <a routerLink="/portal/quotes">Devis</a>
+            <a routerLink="/portal/contracts">Contrats</a>
+            <a routerLink="/portal/invoices">Factures</a>
           </div>
         </div>
       </footer>
@@ -105,32 +157,31 @@ import { AuthService } from '../../auth/auth.service';
       min-height: 100vh;
       display: flex;
       flex-direction: column;
-      background-color: #f8fafc;
+      background: #f8fafc;
       font-family: 'Inter', system-ui, -apple-system, sans-serif;
     }
 
     .portal-container {
+      width: 100%;
       max-width: 1280px;
       margin: 0 auto;
       padding: 0 24px;
-      width: 100%;
     }
 
     .portal-header {
-      background: #0f172a;
-      color: white;
-      box-shadow: 0 4px 20px rgba(15, 23, 42, 0.15);
+      background: #ffffff;
+      border-bottom: 1px solid #e2e8f0;
       position: sticky;
       top: 0;
-      z-index: 1000;
+      z-index: 100;
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
     }
 
     .header-content {
-      height: 72px;
       display: flex;
       align-items: center;
       justify-content: space-between;
-      gap: 20px;
+      height: 70px;
     }
 
     .brand {
@@ -143,83 +194,125 @@ import { AuthService } from '../../auth/auth.service';
       background: #2563eb;
       color: white;
       font-size: 11px;
-      font-weight: 800;
-      text-transform: uppercase;
-      padding: 4px 8px;
+      font-weight: 700;
+      padding: 3px 8px;
       border-radius: 6px;
-      letter-spacing: 0.5px;
+      text-transform: uppercase;
     }
 
     .brand-title {
-      font-size: 18px;
-      color: #94a3b8;
-      strong { color: white; }
+      font-size: 16px;
+      color: #0f172a;
     }
 
     .portal-nav {
       display: flex;
-      align-items: center;
-      gap: 8px;
+      gap: 6px;
 
       a {
         display: flex;
         align-items: center;
         gap: 6px;
-        color: #94a3b8;
-        text-decoration: none;
         padding: 8px 14px;
         border-radius: 8px;
+        color: #64748b;
+        text-decoration: none;
         font-size: 13.5px;
         font-weight: 500;
-        transition: all 0.2s ease;
+        transition: all 0.2s;
 
-        mat-icon { font-size: 18px; width: 18px; height: 18px; }
+        mat-icon {
+          font-size: 18px;
+          width: 18px;
+          height: 18px;
+        }
 
         &:hover {
-          color: white;
-          background: rgba(255, 255, 255, 0.08);
+          background: #f1f5f9;
+          color: #0f172a;
         }
 
         &.active-nav {
-          color: white;
-          background: #2563eb;
-          box-shadow: 0 2px 8px rgba(37, 99, 235, 0.4);
+          background: #eff6ff;
+          color: #2563eb;
+          font-weight: 600;
         }
       }
     }
 
+    .user-menu {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
     .user-btn {
-      color: white;
       display: flex;
       align-items: center;
       gap: 8px;
+      padding: 4px 8px 4px 4px !important;
+      border-radius: 20px !important;
     }
 
     .user-avatar {
       width: 32px;
       height: 32px;
       border-radius: 50%;
-      background: #3b82f6;
+      background: linear-gradient(135deg, #2563eb, #1d4ed8);
       color: white;
-      font-weight: 700;
-      font-size: 14px;
       display: flex;
       align-items: center;
       justify-content: center;
+      font-weight: 700;
+      font-size: 14px;
     }
 
     .user-name {
       font-size: 13px;
-      max-width: 150px;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      white-space: nowrap;
+      font-weight: 600;
+      color: #0f172a;
     }
+
+    .notif-header {
+      padding: 12px 16px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .notif-empty {
+      padding: 20px;
+      text-align: center;
+      font-size: 13px;
+      color: #64748b;
+    }
+    .notif-list {
+      max-height: 300px;
+      overflow-y: auto;
+    }
+    .notif-item {
+      padding: 12px 16px;
+      display: flex;
+      gap: 12px;
+      border-bottom: 1px solid #f1f5f9;
+      cursor: pointer;
+      &:hover { background: #f8fafc; }
+      &.unread { background: #eff6ff; }
+    }
+    .notif-ic { font-size: 20px; width: 20px; height: 20px; margin-top: 2px; }
+    .notif-body { flex: 1; display: flex; flex-direction: column; }
+    .notif-title { font-size: 13px; color: #0f172a; }
+    .notif-msg { font-size: 12px; color: #64748b; margin: 2px 0 4px; }
+    .notif-time { font-size: 10px; color: #94a3b8; }
 
     .menu-header {
       padding: 12px 16px;
-      font-size: 13px;
-      .menu-email { color: #64748b; font-size: 12px; margin-top: 2px; }
+      strong { font-size: 13px; color: #0f172a; }
+    }
+
+    .menu-email {
+      font-size: 12px;
+      color: #64748b;
+      margin-top: 2px;
     }
 
     .portal-main {
@@ -229,18 +322,19 @@ import { AuthService } from '../../auth/auth.service';
 
     .portal-footer {
       background: #0f172a;
-      color: #64748b;
-      padding: 20px 0;
+      color: #94a3b8;
+      padding: 28px 0;
+      margin-top: auto;
       font-size: 13px;
-      border-top: 1px solid #1e293b;
+
+      p { margin: 4px 0 0; font-size: 12px; opacity: 0.8; }
     }
 
     .footer-content {
       display: flex;
       justify-content: space-between;
-      align-items: center;
       flex-wrap: wrap;
-      gap: 12px;
+      gap: 16px;
     }
 
     .footer-links {
@@ -250,9 +344,49 @@ import { AuthService } from '../../auth/auth.service';
     }
   `],
 })
-export class ClientPortalLayoutComponent {
+export class ClientPortalLayoutComponent implements OnInit {
   auth = inject(AuthService);
   private router = inject(Router);
+  private clientPortalService = inject(ClientPortalService);
+  private notificationService = inject(NotificationService);
+
+  notifications = signal<Notification[]>([]);
+
+  ngOnInit(): void {
+    this.loadClientNotifications();
+  }
+
+  loadClientNotifications(): void {
+    this.clientPortalService.resolveClientId().subscribe(clientId => {
+      if (!clientId) return;
+      this.notificationService
+        .getByClient(clientId)
+        .pipe(catchError(() => of([])))
+        .subscribe(list => this.notifications.set(list || []));
+    });
+  }
+
+  unreadCount(): number {
+    return this.notifications().filter(n => !n.read).length;
+  }
+
+  markAllAsRead(): void {
+    const unread = this.notifications().filter(n => !n.read);
+    if (unread.length === 0) return;
+
+    const requests = unread.map(n => this.notificationService.markAsRead(n.idNotification));
+    forkJoin(requests).subscribe(() => {
+      this.notificationService.setUnreadCount(0);
+      this.loadClientNotifications();
+    });
+  }
+
+  markRead(n: Notification): void {
+    if (n.read) return;
+    this.notificationService.markAsRead(n.idNotification).subscribe(() => {
+      this.loadClientNotifications();
+    });
+  }
 
   userEmail(): string | undefined {
     return this.auth.currentUser()?.email;

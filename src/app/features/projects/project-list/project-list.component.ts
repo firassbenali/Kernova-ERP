@@ -16,6 +16,7 @@ import { catchError, debounceTime, filter, switchMap } from 'rxjs/operators';
 import { of } from 'rxjs';
 import { ProjectService } from '../../../core/services/project.service';
 import { Project, ProjectStatus, ProjectPriority } from '../../../domain/models/project.model';
+import { Notification } from '../../../domain/models/notification.model';
 import { ConfirmDialogComponent } from '../../../shared/components/confirm-dialog/confirm-dialog.component';
 import { EmptyStateComponent } from '../../../shared/components/empty-state/empty-state.component';
 import { LoadingOverlayComponent } from '../../../shared/components/loading-overlay/loading-overlay.component';
@@ -49,11 +50,30 @@ import {
       <div class="page-header">
         <h1>Projects</h1>
         <div class="page-header-actions">
+          <button mat-stroked-button color="warn" (click)="checkProjectDelays()" title="Check for overdue projects">
+            <mat-icon>warning</mat-icon> Check Delays
+          </button>
           <button mat-flat-button color="primary" (click)="openDialog()">
             <mat-icon>add</mat-icon> New Project
           </button>
         </div>
       </div>
+
+      <!-- Delay Notifications Banner -->
+      @if (notifications().length > 0) {
+        <div class="delay-banner mb-4">
+          <div class="banner-info">
+            <mat-icon color="warn">error_outline</mat-icon>
+            <div>
+              <strong>Alert: {{ notifications().length }} Delayed Projects Detected</strong>
+              <div class="text-xs text-muted">
+                {{ notifications()[0].message || 'Some project deadlines are nearing or expired.' }}
+              </div>
+            </div>
+          </div>
+          <a mat-button color="warn" routerLink="/notifications">View Notifications</a>
+        </div>
+      }
 
       <div class="section-card" style="position: relative">
         <form class="search-bar" [formGroup]="filterForm">
@@ -153,6 +173,20 @@ import {
       mat-progress-bar { flex: 1; }
       span { font-size: 12px; color: var(--color-text-secondary); }
     }
+    .delay-banner {
+      background: #fef2f2;
+      border: 1px solid #fecaca;
+      border-radius: 12px;
+      padding: 12px 20px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .banner-info {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
   `],
 })
 export class ProjectListComponent implements OnInit, AfterViewInit {
@@ -164,10 +198,11 @@ export class ProjectListComponent implements OnInit, AfterViewInit {
   private fb = inject(FormBuilder);
 
   loading = signal(true);
+  notifications = signal<Notification[]>([]);
   dataSource = new MatTableDataSource<Project>([]);
   columns = ['name', 'status', 'priority', 'progress', 'endDate', 'actions'];
-  statuses: ProjectStatus[] = ['PLANNED', 'IN_PROGRESS', 'ON_HOLD', 'COMPLETED', 'CANCELLED'];
-  priorities: ProjectPriority[] = ['LOW', 'MEDIUM', 'HIGH', 'CRITICAL'];
+  statuses: ProjectStatus[] = ['PLANNED', 'IN_PROGRESS', 'COMPLETED', 'CANCELLED', 'DELAYED'];
+  priorities: ProjectPriority[] = ['LOW', 'MEDIUM', 'HIGH'];
 
   filterForm = this.fb.nonNullable.group({
     name: [''],
@@ -178,10 +213,33 @@ export class ProjectListComponent implements OnInit, AfterViewInit {
   ngOnInit(): void {
     this.filterForm.valueChanges.pipe(debounceTime(300)).subscribe(() => this.load());
     this.load();
+    this.loadNotifications();
   }
 
   ngAfterViewInit(): void {
     this.dataSource.paginator = this.paginator;
+  }
+
+  loadNotifications(): void {
+    this.service
+      .getDelayNotifications()
+      .pipe(catchError(() => of([])))
+      .subscribe(list => this.notifications.set(list));
+  }
+
+  checkProjectDelays(): void {
+    this.snackBar.open('Checking for project delays...', '', { duration: 2000 });
+    this.service
+      .checkDelays()
+      .pipe(catchError(() => of([])))
+      .subscribe(list => {
+        this.notifications.set(list);
+        this.snackBar.open(
+          list.length > 0 ? `${list.length} delays detected` : 'No new project delays detected',
+          'OK',
+          { duration: 4000 }
+        );
+      });
   }
 
   load(): void {
@@ -220,7 +278,14 @@ export class ProjectListComponent implements OnInit, AfterViewInit {
           });
           this.load();
         },
-        error: () => this.snackBar.open('Operation failed', 'Dismiss', { duration: 4000 }),
+        error: (err) => {
+          console.error('Project save error:', err);
+          let errorMsg = err?.error?.message || err?.message || 'Operation failed';
+          if (err?.status === 403) {
+            errorMsg = 'Access Denied: Your account role does not have permission to create/edit projects (ADMIN or MANAGER role required).';
+          }
+          this.snackBar.open(errorMsg, 'Dismiss', { duration: 6000 });
+        },
       });
   }
 

@@ -13,6 +13,7 @@ import { Contract } from '../../../domain/models/contract.model';
 import { LoadingOverlayComponent } from '../../../shared/components/loading-overlay/loading-overlay.component';
 import { EmptyStateComponent } from '../../../shared/components/empty-state/empty-state.component';
 import { SignContractDialogComponent } from '../../clients/sign-contract-dialog/sign-contract-dialog.component';
+import { ClientPortalService } from '../../../core/services/client-portal.service';
 import { filter, switchMap } from 'rxjs';
 
 @Component({
@@ -124,6 +125,7 @@ export class PortalContractsComponent implements OnInit {
   private authService = inject(AuthService);
   private dialog = inject(MatDialog);
   private snackBar = inject(MatSnackBar);
+  private clientPortalService = inject(ClientPortalService);
 
   loading = signal(true);
   contracts = signal<Contract[]>([]);
@@ -134,20 +136,21 @@ export class PortalContractsComponent implements OnInit {
 
   load(): void {
     this.loading.set(true);
-    const clientId = this.authService.currentUser()?.id;
-    if (!clientId) {
-      this.contracts.set([]);
-      this.loading.set(false);
-      return;
-    }
-
-    this.contractService.getAll(clientId).subscribe({
-      next: res => {
-        const filtered = (res || []).filter(c => c.clientId === clientId);
-        this.contracts.set(filtered);
+    this.clientPortalService.resolveClientId().subscribe(clientId => {
+      if (!clientId) {
+        this.contracts.set([]);
         this.loading.set(false);
-      },
-      error: () => this.loading.set(false),
+        return;
+      }
+
+      this.contractService.getAll(clientId).subscribe({
+        next: res => {
+          const filtered = (res || []).filter(c => c.clientId === clientId);
+          this.contracts.set(filtered);
+          this.loading.set(false);
+        },
+        error: () => this.loading.set(false),
+      });
     });
   }
 

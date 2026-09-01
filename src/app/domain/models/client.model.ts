@@ -47,7 +47,9 @@ export interface Client {
   createdAt?: string;
   updatedAt?: string;
   contacts?: Contact[];
+  createAccount?: boolean;
   initialPassword?: string;
+  password?: string;
 }
 
 export interface ClientFilters {

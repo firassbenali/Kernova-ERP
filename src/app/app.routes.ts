@@ -67,6 +67,13 @@ export const routes: Routes = [
             m => m.PortalDocumentsComponent
           ),
       },
+      {
+        path: 'projects',
+        loadComponent: () =>
+          import('./features/client-portal/portal-projects/portal-projects.component').then(
+            m => m.PortalProjectsComponent
+          ),
+      },
     ],
   },
   {
@@ -217,6 +224,11 @@ export const routes: Routes = [
           import('./features/projects/documents/document-list/document-list.component').then(
             m => m.DocumentListComponent
           ),
+      },
+      {
+        path: 'tasks/my-tasks',
+        loadComponent: () =>
+          import('./features/tasks/my-tasks/my-tasks.component').then(m => m.MyTasksComponent),
       },
       {
         path: 'tasks',
