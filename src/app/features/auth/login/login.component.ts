@@ -185,6 +185,8 @@ export class LoginComponent {
         const role = res.user?.role?.toUpperCase();
         if (role === 'CLIENT' || role === 'ROLE_CLIENT') {
           this.router.navigate(['/portal/dashboard']);
+        } else if (role === 'EMPLOYEE' || role === 'ROLE_EMPLOYEE') {
+          this.router.navigate(['/tasks/my-tasks']);
         } else {
           this.router.navigate(['/dashboard']);
         }

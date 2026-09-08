@@ -53,12 +53,25 @@ export class AuthService {
   }
 
   hasRole(...roles: string[]): boolean {
-    const role = this._currentUser()?.role;
-    return !!role && roles.some(r => r.toLowerCase() === role.toLowerCase());
+    const userRole = this._currentUser()?.role;
+    if (!userRole) return false;
+    const normUserRole = userRole.toLowerCase().replace(/^role_/, '');
+    return roles.some(r => {
+      const normRole = r.toLowerCase().replace(/^role_/, '');
+      return normRole === normUserRole;
+    });
   }
 
   isAdmin(): boolean {
     return this.hasRole('ADMIN');
+  }
+
+  isEmployee(): boolean {
+    return this.hasRole('EMPLOYEE');
+  }
+
+  isClient(): boolean {
+    return this.hasRole('CLIENT');
   }
 
   getToken(): string | null {

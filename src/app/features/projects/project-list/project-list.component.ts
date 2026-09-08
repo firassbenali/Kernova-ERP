@@ -13,8 +13,12 @@ import { MatProgressBarModule } from '@angular/material/progress-bar';
 import { MatDialog } from '@angular/material/dialog';
 import { MatSnackBar } from '@angular/material/snack-bar';
 import { catchError, debounceTime, filter, switchMap } from 'rxjs/operators';
-import { of } from 'rxjs';
+import { forkJoin, of } from 'rxjs';
 import { ProjectService } from '../../../core/services/project.service';
+import { EmployeeService } from '../../../core/services/employee.service';
+import { ResourcePlanningService } from '../../../core/services/resource-planning.service';
+import { TaskService } from '../../../core/services/task.service';
+import { AuthService } from '../../../core/auth/auth.service';
 import { Project, ProjectStatus, ProjectPriority } from '../../../domain/models/project.model';
 import { Notification } from '../../../domain/models/notification.model';
 import { ConfirmDialogComponent } from '../../../shared/components/confirm-dialog/confirm-dialog.component';
@@ -50,12 +54,14 @@ import {
       <div class="page-header">
         <h1>Projects</h1>
         <div class="page-header-actions">
-          <button mat-stroked-button color="warn" (click)="checkProjectDelays()" title="Check for overdue projects">
-            <mat-icon>warning</mat-icon> Check Delays
-          </button>
-          <button mat-flat-button color="primary" (click)="openDialog()">
-            <mat-icon>add</mat-icon> New Project
-          </button>
+          @if (isManagerOrAdmin()) {
+            <button mat-stroked-button color="warn" (click)="checkProjectDelays()" title="Check for overdue projects">
+              <mat-icon>warning</mat-icon> Check Delays
+            </button>
+            <button mat-flat-button color="primary" (click)="openDialog()">
+              <mat-icon>add</mat-icon> New Project
+            </button>
+          }
         </div>
       </div>
 
@@ -149,12 +155,14 @@ import {
                   <button mat-menu-item [routerLink]="['/projects', row.id]">
                     <mat-icon>visibility</mat-icon> View
                   </button>
-                  <button mat-menu-item (click)="openDialog(row)">
-                    <mat-icon>edit</mat-icon> Edit
-                  </button>
-                  <button mat-menu-item (click)="delete(row)">
-                    <mat-icon color="warn">delete</mat-icon> Delete
-                  </button>
+                  @if (isManagerOrAdmin()) {
+                    <button mat-menu-item (click)="openDialog(row)">
+                      <mat-icon>edit</mat-icon> Edit
+                    </button>
+                    <button mat-menu-item (click)="delete(row)">
+                      <mat-icon color="warn">delete</mat-icon> Delete
+                    </button>
+                  }
                 </mat-menu>
               </td>
             </ng-container>
@@ -193,6 +201,10 @@ export class ProjectListComponent implements OnInit, AfterViewInit {
   @ViewChild(MatPaginator) paginator!: MatPaginator;
 
   private service = inject(ProjectService);
+  private employeeService = inject(EmployeeService);
+  private resourceService = inject(ResourcePlanningService);
+  private taskService = inject(TaskService);
+  readonly authService = inject(AuthService);
   private dialog = inject(MatDialog);
   private snackBar = inject(MatSnackBar);
   private fb = inject(FormBuilder);
@@ -242,6 +254,10 @@ export class ProjectListComponent implements OnInit, AfterViewInit {
       });
   }
 
+  isManagerOrAdmin(): boolean {
+    return this.authService.hasRole('ADMIN', 'MANAGER', 'PROJECT_MANAGER');
+  }
+
   load(): void {
     this.loading.set(true);
     const f = this.filterForm.getRawValue();
@@ -253,8 +269,38 @@ export class ProjectListComponent implements OnInit, AfterViewInit {
       })
       .pipe(catchError(() => of([])))
       .subscribe(data => {
-        this.dataSource.data = data;
-        this.loading.set(false);
+        if (this.authService.isEmployee()) {
+          const currentUser = this.authService.currentUser();
+          if (!currentUser) {
+            this.dataSource.data = [];
+            this.loading.set(false);
+            return;
+          }
+
+          this.employeeService.getAll().pipe(
+            catchError(() => of([])),
+            switchMap(employees => {
+              const myEmp = employees.find(e => e.userId === currentUser.id);
+              const empId = myEmp ? myEmp.id : currentUser.id;
+
+              return forkJoin({
+                allocations: this.resourceService.getAllocationsByEmployee(empId).pipe(catchError(() => of([]))),
+                tasks: this.taskService.getByEmployee(empId).pipe(catchError(() => of([]))),
+              });
+            })
+          ).subscribe(({ allocations, tasks }: { allocations: any[]; tasks: any[] }) => {
+            const assignedProjectIds = new Set<number>();
+            allocations.forEach((a: any) => { if (a.projectId) assignedProjectIds.add(a.projectId); });
+            tasks.forEach((t: any) => { if (t.projectId) assignedProjectIds.add(t.projectId); });
+
+            const myProjects = data.filter(p => assignedProjectIds.has(p.id));
+            this.dataSource.data = myProjects;
+            this.loading.set(false);
+          });
+        } else {
+          this.dataSource.data = data;
+          this.loading.set(false);
+        }
       });
   }
 

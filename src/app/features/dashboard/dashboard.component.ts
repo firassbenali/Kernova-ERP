@@ -1,5 +1,5 @@
 import { Component, inject, OnInit, signal, computed } from '@angular/core';
-import { RouterLink } from '@angular/router';
+import { Router, RouterLink } from '@angular/router';
 import { forkJoin, of } from 'rxjs';
 import { catchError } from 'rxjs/operators';
 import { MatCardModule } from '@angular/material/card';
@@ -247,6 +247,7 @@ export class DashboardComponent implements OnInit {
   private taskService = inject(TaskService);
   private notificationService = inject(NotificationService);
   private authService = inject(AuthService);
+  private router = inject(Router);
 
   loading = signal(true);
   kpis = signal<KpiCard[]>([]);
@@ -258,6 +259,10 @@ export class DashboardComponent implements OnInit {
   userName = computed(() => this.authService.currentUser()?.username ?? 'User');
 
   ngOnInit(): void {
+    if (this.authService.isEmployee()) {
+      this.router.navigate(['/tasks/my-tasks']);
+      return;
+    }
     forkJoin({
       employees: this.employeeService.getAll().pipe(catchError(() => of([]))),
       teams: this.teamService.getAll().pipe(catchError(() => of([]))),

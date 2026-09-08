@@ -16,11 +16,13 @@ import { MatDialog } from '@angular/material/dialog';
 import { MatSnackBar } from '@angular/material/snack-bar';
 import { MatChipsModule } from '@angular/material/chips';
 import { catchError, filter, switchMap } from 'rxjs/operators';
-import { of } from 'rxjs';
+import { forkJoin, of } from 'rxjs';
 
 import { ProjectService } from '../../../core/services/project.service';
 import { TaskService } from '../../../core/services/task.service';
 import { ResourcePlanningService } from '../../../core/services/resource-planning.service';
+import { EmployeeService } from '../../../core/services/employee.service';
+import { TeamService } from '../../../core/services/team.service';
 import { AuthService } from '../../../core/auth/auth.service';
 
 import {
@@ -47,6 +49,11 @@ import {
   TaskDialogData,
 } from '../../tasks/task-form-dialog/task-form-dialog.component';
 import { DocumentUploadDialogComponent } from '../documents/document-upload-dialog/document-upload-dialog.component';
+import {
+  ResourceAllocationFormDialogComponent,
+  ResourceAllocationDialogData,
+  ResourceAllocationFormResult,
+} from '../../rh/resource-planning/resource-allocation-form-dialog/resource-allocation-form-dialog.component';
 
 @Component({
   selector: 'app-project-detail',
@@ -297,8 +304,13 @@ import { DocumentUploadDialogComponent } from '../documents/document-upload-dial
           <!-- TAB 4: TEAM & RESOURCES -->
           <mat-tab label="Team & Allocation">
             <div class="tab-content">
-              <div class="section-toolbar mb-4">
+              <div class="section-toolbar flex justify-between align-center mb-4">
                 <h2>Allocated Team Members</h2>
+                @if (isManagerOrAdmin()) {
+                  <button mat-flat-button color="primary" (click)="openAllocationDialog()">
+                    <mat-icon>group_add</mat-icon> Allocate Team or Employee
+                  </button>
+                }
               </div>
 
               @if (teamLoading()) {
@@ -563,6 +575,8 @@ export class ProjectDetailComponent implements OnInit {
   private projectService = inject(ProjectService);
   private taskService = inject(TaskService);
   private resourceService = inject(ResourcePlanningService);
+  private employeeService = inject(EmployeeService);
+  private teamService = inject(TeamService);
   private authService = inject(AuthService);
   private dialog = inject(MatDialog);
   private snackBar = inject(MatSnackBar);
@@ -670,6 +684,68 @@ export class ProjectDetailComponent implements OnInit {
         this.teamAllocation.set(res);
         this.teamLoading.set(false);
       });
+  }
+
+  openAllocationDialog(): void {
+    forkJoin([
+      this.employeeService.getAll().pipe(catchError(() => of([]))),
+      this.projectService.getAll().pipe(catchError(() => of([]))),
+      this.teamService.getAll().pipe(catchError(() => of([]))),
+    ]).subscribe(([employees, projects, teams]: [any[], any[], any[]]) => {
+      this.dialog
+        .open(ResourceAllocationFormDialogComponent, {
+          width: '640px',
+          data: {
+            employees,
+            projects,
+            teams,
+            selectedProjectId: this.projectId,
+          } satisfies ResourceAllocationDialogData,
+        })
+        .afterClosed()
+        .pipe(filter((result): result is ResourceAllocationFormResult => !!result))
+        .subscribe(result => {
+          if (result.targetType === 'TEAM' && result.teamId) {
+            this.teamService.getById(result.teamId).subscribe(team => {
+              const memberIds: number[] = [];
+              if (team.members && team.members.length > 0) {
+                team.members.forEach(m => memberIds.push(m.id));
+              } else if (team.leaderId) {
+                memberIds.push(team.leaderId);
+              }
+
+              if (memberIds.length === 0) {
+                this.snackBar.open('Selected team has no members assigned.', 'OK', { duration: 4000 });
+                return;
+              }
+
+              const creates = memberIds.map(empId =>
+                this.resourceService.createAllocation({
+                  ...result.request,
+                  employeeId: empId,
+                  role: result.request.role || `Team: ${team.name}`,
+                })
+              );
+
+              forkJoin(creates).subscribe({
+                next: () => {
+                  this.snackBar.open(`Allocated ${memberIds.length} team members to project`, 'OK', { duration: 3000 });
+                  this.loadTeam();
+                },
+                error: (err) => this.snackBar.open(err?.error?.message || 'Failed to allocate team members', 'Dismiss', { duration: 5000 }),
+              });
+            });
+          } else if (result.request.employeeId) {
+            this.resourceService.createAllocation(result.request as any).subscribe({
+              next: () => {
+                this.snackBar.open('Employee allocated to project', 'OK', { duration: 3000 });
+                this.loadTeam();
+              },
+              error: (err) => this.snackBar.open(err?.error?.message || 'Allocation failed', 'Dismiss', { duration: 5000 }),
+            });
+          }
+        });
+    });
   }
 
   loadReports(): void {

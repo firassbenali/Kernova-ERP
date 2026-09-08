@@ -10,7 +10,8 @@ interface NavItem {
   icon: string;
   route?: string;
   children?: NavItem[];
-  adminOnly?: boolean;
+  roles?: string[];
+  excludeRoles?: string[];
 }
 
 @Component({
@@ -223,9 +224,10 @@ export class SidebarComponent {
   }
 
   readonly navItems: NavItem[] = [
-    { label: 'Dashboard', icon: 'dashboard', route: '/dashboard' },
+    { label: 'Dashboard', icon: 'dashboard', route: '/dashboard', roles: ['ADMIN'] },
     {
       label: 'CRM & Clients', icon: 'business',
+      roles: ['ADMIN'],
       children: [
         { label: 'Clients',      icon: 'store',       route: '/clients' },
         { label: 'Rendez-vous',  icon: 'event',       route: '/clients/appointments' },
@@ -233,6 +235,7 @@ export class SidebarComponent {
     },
     {
       label: 'Human Resources', icon: 'people',
+      roles: ['ADMIN'],
       children: [
         { label: 'Employees',   icon: 'badge',         route: '/rh/employees' },
         { label: 'Departments', icon: 'account_tree',  route: '/rh/departments' },
@@ -247,22 +250,43 @@ export class SidebarComponent {
       label: 'Projects', icon: 'folder',
       children: [
         { label: 'Projects',   icon: 'folder_open',  route: '/projects' },
-        { label: 'Mes Tâches', icon: 'assignment_ind', route: '/tasks/my-tasks' },
-        { label: 'Tasks',      icon: 'task_alt',     route: '/tasks' },
+        { label: 'Mes Tâches', icon: 'assignment_ind', route: '/tasks/my-tasks', excludeRoles: ['ADMIN'] },
+        { label: 'Tasks',      icon: 'task_alt',     route: '/tasks', roles: ['ADMIN'] },
         { label: 'Documents',  icon: 'description',  route: '/documents' },
       ]
     },
     { label: 'Notifications', icon: 'notifications', route: '/notifications' },
     {
       label: 'Administration', icon: 'admin_panel_settings',
-      adminOnly: true,
+      roles: ['ADMIN'],
       children: [
         { label: 'Users', icon: 'manage_accounts', route: '/users' },
       ]
     },
   ];
 
+  private isItemVisible(item: NavItem): boolean {
+    if (item.roles && item.roles.length > 0) {
+      const hasAllowedRole = item.roles.some(r => this.auth.hasRole(r));
+      if (!hasAllowedRole) return false;
+    }
+
+    if (item.excludeRoles && item.excludeRoles.length > 0) {
+      const hasExcludedRole = item.excludeRoles.some(r => this.auth.hasRole(r));
+      if (hasExcludedRole) return false;
+    }
+
+    return true;
+  }
+
   get visibleNavItems(): NavItem[] {
-    return this.navItems.filter(item => !item.adminOnly || this.auth.isAdmin());
+    return this.navItems
+      .filter(item => this.isItemVisible(item))
+      .map(item => {
+        if (!item.children) return item;
+        const visibleChildren = item.children.filter(child => this.isItemVisible(child));
+        return { ...item, children: visibleChildren };
+      })
+      .filter(item => !item.children || item.children.length > 0);
   }
 }

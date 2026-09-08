@@ -24,9 +24,12 @@ import { StatusChipComponent } from '../../../../shared/components/status-chip/s
 import { ConfirmDialogComponent } from '../../../../shared/components/confirm-dialog/confirm-dialog.component';
 import { EmptyStateComponent } from '../../../../shared/components/empty-state/empty-state.component';
 import { LoadingOverlayComponent } from '../../../../shared/components/loading-overlay/loading-overlay.component';
+import { TeamService } from '../../../../core/services/team.service';
+import { Team } from '../../../../domain/models/team.model';
 import {
   ResourceAllocationFormDialogComponent,
   ResourceAllocationDialogData,
+  ResourceAllocationFormResult,
 } from '../resource-allocation-form-dialog/resource-allocation-form-dialog.component';
 
 @Component({
@@ -216,6 +219,7 @@ export class ResourceAllocationListComponent implements OnInit, AfterViewInit {
   private service = inject(ResourcePlanningService);
   private employeeService = inject(EmployeeService);
   private projectService = inject(ProjectService);
+  private teamService = inject(TeamService);
   private dialog = inject(MatDialog);
   private snackBar = inject(MatSnackBar);
   private route = inject(ActivatedRoute);
@@ -234,6 +238,7 @@ export class ResourceAllocationListComponent implements OnInit, AfterViewInit {
   employees = signal<Employee[]>([]);
   departments = signal<any[]>([]);
   projects = signal<Project[]>([]);
+  teams = signal<Team[]>([]);
 
   dataSource = new MatTableDataSource<ResourceAllocation>([]);
   columns = ['employeeName', 'projectName', 'allocationPercentage', 'period', 'role', 'status', 'actions'];
@@ -255,9 +260,11 @@ export class ResourceAllocationListComponent implements OnInit, AfterViewInit {
     forkJoin([
       this.employeeService.getAll().pipe(catchError(() => of([]))),
       this.projectService.getAll().pipe(catchError(() => of([]))),
-    ]).subscribe(([employees, projects]) => {
+      this.teamService.getAll().pipe(catchError(() => of([]))),
+    ]).subscribe(([employees, projects, teams]) => {
       this.employees.set(employees as Employee[]);
       this.projects.set(projects as Project[]);
+      this.teams.set(teams as Team[]);
       // Extract unique departments from employees
       const deptMap = new Map<number, { id: number; name: string }>();
       employees.forEach(e => {
@@ -266,6 +273,8 @@ export class ResourceAllocationListComponent implements OnInit, AfterViewInit {
         }
       });
       this.departments.set(Array.from(deptMap.values()));
+      // Refresh allocation list after lookups are populated to enrich employee/project names
+      this.load();
     });
   }
 
@@ -280,13 +289,43 @@ export class ResourceAllocationListComponent implements OnInit, AfterViewInit {
         projectId: this.projectId,
       })
       .pipe(
-        catchError(() =>
-          of({ content: [], page: 1, size: this.pageSize(), totalElements: 0, totalPages: 0 } satisfies PageResponse<ResourceAllocation>)
-        )
+        catchError(() => of([] as any))
       )
-      .subscribe(page => {
-        this.dataSource.data = page.content ?? [];
-        this.totalElements.set(page.totalElements ?? 0);
+      .subscribe((res: any) => {
+        let rawItems: ResourceAllocation[] = [];
+        if (Array.isArray(res)) {
+          rawItems = res;
+        } else if (res && Array.isArray(res.content)) {
+          rawItems = res.content;
+        } else if (res && Array.isArray(res.data)) {
+          rawItems = res.data;
+        }
+
+        const employees = this.employees();
+        const projects = this.projects();
+
+        let items = rawItems.map(item => {
+          const emp = employees.find(e => e.id === item.employeeId);
+          const proj = projects.find(p => p.id === item.projectId);
+          return {
+            ...item,
+            employeeName: item.employeeName || emp?.username || (item.employeeId ? `Employee #${item.employeeId}` : 'Unassigned'),
+            projectName: item.projectName || proj?.name || (item.projectId ? `Project #${item.projectId}` : 'Unassigned'),
+          };
+        });
+
+        if (this.projectId) {
+          items = items.filter(a => a.projectId === this.projectId);
+        }
+        if (this.departmentId) {
+          const empIdsInDept = new Set(
+            employees.filter(e => e.departmentId === this.departmentId).map(e => e.id)
+          );
+          items = items.filter(a => empIdsInDept.has(a.employeeId));
+        }
+
+        this.dataSource.data = items;
+        this.totalElements.set(items.length);
         this.applySearch();
         this.loading.set(false);
       });
@@ -344,24 +383,63 @@ export class ResourceAllocationListComponent implements OnInit, AfterViewInit {
     this.dialog
       .open(ResourceAllocationFormDialogComponent, {
         width: '640px',
-        data: { allocation, employees: this.employees(), projects: this.projects() } satisfies ResourceAllocationDialogData,
+        data: {
+          allocation,
+          employees: this.employees(),
+          projects: this.projects(),
+          teams: this.teams(),
+        } satisfies ResourceAllocationDialogData,
       })
       .afterClosed()
-      .pipe(
-        filter((result): result is { request: any; isEdit: boolean } => !!result),
-        tap(({ isEdit }) => (editing = isEdit)),
-        switchMap(({ request, isEdit }) =>
-          isEdit
-            ? this.service.updateAllocation(allocation!.id, request)
-            : this.service.createAllocation(request)
-        )
-      )
-      .subscribe({
-        next: () => {
-          this.snackBar.open(editing ? 'Allocation updated' : 'Allocation created', 'OK', { duration: 3000 });
-          this.load();
-        },
-        error: () => this.snackBar.open('Operation failed', 'Dismiss', { duration: 4000 }),
+      .pipe(filter((result): result is ResourceAllocationFormResult => !!result))
+      .subscribe(result => {
+        if (result.isEdit && allocation) {
+          this.service.updateAllocation(allocation.id, result.request).subscribe({
+            next: () => {
+              this.snackBar.open('Allocation updated', 'OK', { duration: 3000 });
+              this.load();
+            },
+            error: (err) => this.snackBar.open(err?.error?.message || 'Update failed', 'Dismiss', { duration: 5000 }),
+          });
+        } else if (result.targetType === 'TEAM' && result.teamId) {
+          this.teamService.getById(result.teamId).subscribe(team => {
+            const memberIds: number[] = [];
+            if (team.members && team.members.length > 0) {
+              team.members.forEach(m => memberIds.push(m.id));
+            } else if (team.leaderId) {
+              memberIds.push(team.leaderId);
+            }
+
+            if (memberIds.length === 0) {
+              this.snackBar.open('Selected team has no members assigned.', 'OK', { duration: 4000 });
+              return;
+            }
+
+            const creates = memberIds.map(empId =>
+              this.service.createAllocation({
+                ...result.request,
+                employeeId: empId,
+                role: result.request.role || `Team: ${team.name}`,
+              })
+            );
+
+            forkJoin(creates).subscribe({
+              next: () => {
+                this.snackBar.open(`Allocated ${memberIds.length} team members to project`, 'OK', { duration: 3000 });
+                this.load();
+              },
+              error: (err) => this.snackBar.open(err?.error?.message || 'Failed to allocate team members', 'Dismiss', { duration: 5000 }),
+            });
+          });
+        } else if (result.request.employeeId) {
+          this.service.createAllocation(result.request as any).subscribe({
+            next: () => {
+              this.snackBar.open('Allocation created', 'OK', { duration: 3000 });
+              this.load();
+            },
+            error: (err) => this.snackBar.open(err?.error?.message || 'Creation failed', 'Dismiss', { duration: 5000 }),
+          });
+        }
       });
   }
 
