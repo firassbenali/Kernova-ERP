@@ -33,7 +33,7 @@ import { filter, switchMap } from 'rxjs';
       <div class="section-header">
         <div>
           <h2>Mes Contrats & Engagements</h2>
-          <p class="subtitle">Consultez vos contrats et validez par signature électronique</p>
+          <p class="subtitle">Consultez et téléchargez vos contrats en format PDF</p>
         </div>
       </div>
 
@@ -44,7 +44,7 @@ import { filter, switchMap } from 'rxjs';
           <app-empty-state
             icon="description"
             title="Aucun contrat disponible"
-            message="Vos contrats d'engagement apparaîtront ici dès leur validation."
+            message="Vos contrats d'engagement apparaîtront ici dès leur mise à disposition."
           />
         } @else {
           <table mat-table [dataSource]="contracts()" class="w-full">
@@ -70,37 +70,17 @@ import { filter, switchMap } from 'rxjs';
               </td>
             </ng-container>
 
-            <ng-container matColumnDef="signature">
-              <th mat-header-cell *matHeaderCellDef>Statut Signature</th>
-              <td mat-cell *matCellDef="let row">
-                @if (row.signedBy) {
-                  <div class="signed-box">
-                    <mat-icon inline color="primary">verified</mat-icon> Signé par {{ row.signedBy }}
-                    <div class="sub-text">le {{ row.signedDate }}</div>
-                  </div>
-                } @else {
-                  <span class="unsigned-badge">À Signer</span>
-                }
-              </td>
-            </ng-container>
-
             <ng-container matColumnDef="actions">
               <th mat-header-cell *matHeaderCellDef>Actions</th>
               <td mat-cell *matCellDef="let row">
-                <button mat-icon-button (click)="downloadPdf(row)" matTooltip="Télécharger Contrat PDF">
-                  <mat-icon color="primary">picture_as_pdf</mat-icon>
+                <button mat-flat-button color="primary" class="btn-xs" (click)="downloadPdf(row)" matTooltip="Télécharger Contrat PDF">
+                  <mat-icon inline>picture_as_pdf</mat-icon> Télécharger PDF
                 </button>
-
-                @if (!row.signedBy && row.status !== 'Signed') {
-                  <button mat-flat-button color="accent" class="btn-xs" (click)="signContract(row)">
-                    <mat-icon inline>draw</mat-icon> Signer le Contrat
-                  </button>
-                }
               </td>
             </ng-container>
 
-            <tr mat-header-row *matHeaderRowDef="['reference', 'title', 'amount', 'signature', 'actions']"></tr>
-            <tr mat-row *matRowDef="let row; columns: ['reference', 'title', 'amount', 'signature', 'actions']"></tr>
+            <tr mat-header-row *matHeaderRowDef="['reference', 'title', 'amount', 'actions']"></tr>
+            <tr mat-row *matRowDef="let row; columns: ['reference', 'title', 'amount', 'actions']"></tr>
           </table>
         }
       </div>
@@ -114,17 +94,11 @@ import { filter, switchMap } from 'rxjs';
 
     .ref-badge { font-family: monospace; font-size: 12px; background: #f1f5f9; padding: 4px 8px; border-radius: 6px; color: #334155; font-weight: 600; }
     .sub-text { font-size: 11px; color: #64748b; }
-
-    .signed-box { font-size: 12px; font-weight: 600; color: #15803d; }
-    .unsigned-badge { background: #fef3c7; color: #d97706; padding: 4px 10px; border-radius: 12px; font-size: 12px; font-weight: 700; }
-    .btn-xs { font-size: 12px; line-height: 28px; padding: 0 12px; margin-left: 6px; }
+    .btn-xs { font-size: 12px; line-height: 28px; padding: 0 12px; }
   `],
 })
 export class PortalContractsComponent implements OnInit {
   private contractService = inject(ContractService);
-  private authService = inject(AuthService);
-  private dialog = inject(MatDialog);
-  private snackBar = inject(MatSnackBar);
   private clientPortalService = inject(ClientPortalService);
 
   loading = signal(true);
@@ -152,24 +126,6 @@ export class PortalContractsComponent implements OnInit {
         error: () => this.loading.set(false),
       });
     });
-  }
-
-  signContract(contract: Contract): void {
-    if (!contract.idContract) return;
-
-    this.dialog
-      .open(SignContractDialogComponent, { width: '480px', data: { contract } })
-      .afterClosed()
-      .pipe(
-        filter(Boolean),
-        switchMap(signedBy => this.contractService.signContract(contract.idContract!, signedBy))
-      )
-      .subscribe({
-        next: () => {
-          this.snackBar.open('Contrat signé électroniquement avec succès ! Merci pour votre confiance.', 'OK', { duration: 4000 });
-          this.load();
-        },
-      });
   }
 
   downloadPdf(contract: Contract): void {

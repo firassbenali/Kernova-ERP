@@ -7,6 +7,7 @@ import { MatSelectModule } from '@angular/material/select';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { Appointment } from '../../../domain/models/client.model';
+import { AuthService } from '../../../core/auth/auth.service';
 
 export interface AppointmentDialogData {
   appointment?: Appointment;
@@ -63,17 +64,19 @@ export interface AppointmentDialogData {
           </mat-form-field>
         </div>
 
-        <div class="form-row">
-          <mat-form-field appearance="outline" class="w-full">
-            <mat-label>Statut</mat-label>
-            <mat-select formControlName="status">
-              <mat-option value="Pending">En attente (Pending)</mat-option>
-              <mat-option value="Accepted">Accepté (Accepted)</mat-option>
-              <mat-option value="Refused">Refusé (Refused)</mat-option>
-              <mat-option value="Completed">Terminé (Completed)</mat-option>
-            </mat-select>
-          </mat-form-field>
-        </div>
+        @if (authService.isAdmin()) {
+          <div class="form-row">
+            <mat-form-field appearance="outline" class="w-full">
+              <mat-label>Statut</mat-label>
+              <mat-select formControlName="status">
+                <mat-option value="Pending">En attente (Pending)</mat-option>
+                <mat-option value="Accepted">Accepté (Accepted)</mat-option>
+                <mat-option value="Refused">Refusé (Refused)</mat-option>
+                <mat-option value="Completed">Terminé (Completed)</mat-option>
+              </mat-select>
+            </mat-form-field>
+          </div>
+        }
 
         <div class="form-row">
           <mat-form-field appearance="outline" class="w-full">
@@ -102,6 +105,7 @@ export interface AppointmentDialogData {
 export class AppointmentFormDialogComponent {
   dialogRef = inject(MatDialogRef<AppointmentFormDialogComponent>);
   data: AppointmentDialogData = inject(MAT_DIALOG_DATA);
+  authService = inject(AuthService);
   private fb = inject(FormBuilder);
 
   isEdit = !!this.data.appointment;
